@@ -9,9 +9,9 @@ jobs:
   test-install-container:
     runs-on: ubuntu-latest
     container:
-      image: node:20
+      image: node:24
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@v7
 
       - name: Install pinned version (Docker container job)
         uses: ./
@@ -30,7 +30,7 @@ jobs:
     container:
       image: debian:bookworm-slim
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@v7
 
       - name: Install wget (no curl in this image)
         shell: sh
@@ -54,7 +54,7 @@ jobs:
     container:
       image: debian:bookworm-slim
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@v7
 
       - name: Install curl and jq
         shell: sh
@@ -82,7 +82,7 @@ jobs:
     container:
       image: debian:bookworm-slim
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@v7
 
       - name: Install curl without jq
         shell: sh
@@ -116,7 +116,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@v7
 
       - name: Verify jq is available
         shell: bash
@@ -136,7 +136,7 @@ jobs:
         os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-latest-large, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@v7
 
       # Test 1: Install with default version (v5)
       - name: Install default version
@@ -175,7 +175,7 @@ jobs:
     container:
       image: alpine:3.20
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@v7
 
       - name: Install dependencies
         shell: sh
@@ -197,7 +197,7 @@ jobs:
     name: "Cache hit / miss behavior"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@v7
 
       # First install: cold cache (miss) or warm cache (hit from a previous run) — either way the binary must work
       - name: Install pinned version (first time)
@@ -231,7 +231,7 @@ jobs:
     container:
       image: alpine:3.20
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@v7
 
       - name: Install dependencies
         shell: sh
