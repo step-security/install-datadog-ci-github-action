@@ -103,7 +103,7 @@ runs:
 
     - name: Restore from cache
       id: cache-restore
-      uses: actions/cache/restore@v6
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       continue-on-error: true
       with:
         path: ${{ steps.install-dir.outputs.path }}
@@ -127,7 +127,7 @@ runs:
 
     - name: Save to cache
       if: steps.cache-restore.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v6
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       continue-on-error: true
       with:
         path: ${{ steps.install-dir.outputs.path }}
