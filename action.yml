@@ -1,0 +1,154 @@
+# Unless explicitly stated otherwise all files in this repository are licensed
+# under the Apache License Version 2.0.
+# This product includes software developed at Datadog (https://www.datadoghq.com/)
+# Copyright 2024-present Datadog, Inc.
+# Copyright 2026 StepSecurity
+name: 'Install datadog-ci'
+description: 'Installs the Datadog CI CLI (standalone binary) on the runner'
+branding:
+  icon: 'download'
+  color: 'purple'
+
+inputs:
+  github-token:
+    description: >
+      Optional GitHub token used to authenticate GitHub Releases API lookups for floating major versions like "v5".
+      Defaults to github.token when not provided.
+    required: false
+  version:
+    description: >
+      Version of datadog-ci to install.
+      Use a major version like "v5" (default) to get the latest release within that major version.
+      Use a specific tag like "v5.6.0" to pin.
+    required: false
+    default: 'v5'
+
+outputs:
+  version:
+    description: 'The concrete version that was installed (e.g. "v5.6.0")'
+    value: ${{ steps.resolve-version.outputs.version }}
+  binary-path:
+    description: 'Absolute path to the installed datadog-ci binary'
+    value: ${{ steps.setup.outputs.binary-path }}
+  cache-hit:
+    description: "'true' if the binary was restored from cache; empty if it was downloaded from GitHub Releases"
+    value: ${{ steps.cache-restore.outputs.cache-hit }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Subscription check
+      env:
+        REPO_PRIVATE: ${{ github.event.repository.private }}
+      run: |
+        # validate subscription status
+        UPSTREAM="DataDog/install-datadog-ci-github-action"
+        ACTION_REPO="${GITHUB_ACTION_REPOSITORY:-}"
+        DOCS_URL="https://docs.stepsecurity.io/actions/stepsecurity-maintained-actions"
+
+        echo ""
+        echo -e "\033[1;36mStepSecurity Maintained Action\033[0m"
+        echo "Secure drop-in replacement for $UPSTREAM"
+        if [ "$REPO_PRIVATE" = "false" ]; then
+          echo -e "\033[32m✓ Free for public repositories\033[0m"
+        fi
+        echo -e "\033[36mLearn more:\033[0m $DOCS_URL"
+        echo ""
+
+        if [ "$REPO_PRIVATE" != "false" ]; then
+          SERVER_URL="${GITHUB_SERVER_URL:-https://github.com}"
+
+          if [ "$SERVER_URL" != "https://github.com" ]; then
+            BODY=$(printf '{"action":"%s","ghes_server":"%s"}' "$ACTION_REPO" "$SERVER_URL")
+          else
+            BODY=$(printf '{"action":"%s"}' "$ACTION_REPO")
+          fi
+
+          API_URL="https://agent.api.stepsecurity.io/v1/github/$GITHUB_REPOSITORY/actions/maintained-actions-subscription"
+
+          RESPONSE=$(curl --max-time 3 -s -w "%{http_code}" \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -d "$BODY" \
+            "$API_URL" -o /dev/null) && CURL_EXIT_CODE=0 || CURL_EXIT_CODE=$?
+
+          if [ $CURL_EXIT_CODE -ne 0 ]; then
+            echo "Timeout or API not reachable. Continuing to next step."
+          elif [ "$RESPONSE" = "403" ]; then
+            echo -e "::error::\033[1;31mThis action requires a StepSecurity subscription for private repositories.\033[0m"
+            echo -e "::error::\033[31mLearn how to enable a subscription: $DOCS_URL\033[0m"
+            exit 1
+          fi
+        fi
+      shell: bash
+
+    - name: Resolve platform
+      id: resolve-platform
+      shell: bash
+      run: bash "${GITHUB_ACTION_PATH}/resolve-platform.sh"
+
+    - name: Resolve version
+      id: resolve-version
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token || github.token }}
+      run: bash "${GITHUB_ACTION_PATH}/resolve-version.sh" "${{ inputs.version }}"
+
+    - name: Compute install directory
+      id: install-dir
+      shell: bash
+      run: |
+        install_dir="${RUNNER_TOOL_CACHE:-${HOME}/.datadog-ci}/datadog-ci/${{ steps.resolve-version.outputs.version }}"
+        echo "path=$install_dir" >> "$GITHUB_OUTPUT"
+
+    - name: Restore from cache
+      id: cache-restore
+      uses: actions/cache/restore@v6
+      continue-on-error: true
+      with:
+        path: ${{ steps.install-dir.outputs.path }}
+        key: datadog-ci-${{ runner.os }}-${{ runner.arch }}-${{ steps.resolve-version.outputs.version }}
+
+    - name: Download datadog-ci
+      if: steps.cache-restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: >
+        bash "${GITHUB_ACTION_PATH}/download.sh"
+        "${{ steps.resolve-version.outputs.version }}"
+        "${{ steps.resolve-platform.outputs.binary-name }}"
+
+    - name: Verify checksum
+      if: steps.cache-restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: >
+        bash "${GITHUB_ACTION_PATH}/verify-checksum.sh"
+        "${{ steps.resolve-version.outputs.version }}"
+        "${{ steps.resolve-platform.outputs.binary-name }}"
+
+    - name: Save to cache
+      if: steps.cache-restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      continue-on-error: true
+      with:
+        path: ${{ steps.install-dir.outputs.path }}
+        key: datadog-ci-${{ runner.os }}-${{ runner.arch }}-${{ steps.resolve-version.outputs.version }}
+
+    - name: Add to PATH and verify
+      id: setup
+      shell: bash
+      run: |
+        install_dir="${{ steps.install-dir.outputs.path }}"
+        echo "$install_dir" >> "$GITHUB_PATH"
+
+        # Determine the local binary name
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          echo "binary-path=$install_dir/datadog-ci.exe" >> "$GITHUB_OUTPUT"
+        else
+          echo "binary-path=$install_dir/datadog-ci" >> "$GITHUB_OUTPUT"
+        fi
+
+        # Verify the binary works
+        if ! "$install_dir/datadog-ci$(if [[ "$RUNNER_OS" == "Windows" ]]; then echo '.exe'; fi)" version; then
+          echo "::error::datadog-ci binary verification failed. The binary may be corrupted or incompatible with this runner."
+          exit 1
+        fi
