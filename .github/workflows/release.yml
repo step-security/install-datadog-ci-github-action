@@ -1,0 +1,22 @@
+# Unless explicitly stated otherwise all files in this repository are licensed
+# under the Apache License Version 2.0.
+# This product includes software developed at Datadog (https://www.datadoghq.com/)
+# Copyright 2024-present Datadog, Inc.
+name: Release
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+permissions:
+  contents: write # Required for creating the GitHub Release
+jobs:
+  # TODO: Find a supported way to update the floating major tag automatically
+  # instead of requiring a manual protected-tag bypass after each release.
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes

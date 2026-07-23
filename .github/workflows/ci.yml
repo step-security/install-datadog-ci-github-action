@@ -1,0 +1,250 @@
+# Unless explicitly stated otherwise all files in this repository are licensed
+# under the Apache License Version 2.0.
+# This product includes software developed at Datadog (https://www.datadoghq.com/)
+# Copyright 2024-present Datadog, Inc.
+name: CI
+on: [push, pull_request]
+
+jobs:
+  test-install-container:
+    runs-on: ubuntu-latest
+    container:
+      image: node:20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install pinned version (Docker container job)
+        uses: ./
+        id: install-container
+        with:
+          version: 'v5.6.0'
+
+      - name: Verify install works inside container
+        shell: bash
+        run: |
+          datadog-ci version
+          [[ "${{ steps.install-container.outputs.version }}" == "v5.6.0" ]]
+
+  test-install-container-wget:
+    runs-on: ubuntu-latest
+    container:
+      image: debian:bookworm-slim
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install wget (no curl in this image)
+        shell: sh
+        run: apt-get update && apt-get install -y --no-install-recommends wget ca-certificates
+
+      - name: Install latest major version (wget-only container)
+        uses: ./
+        id: install-wget
+        with:
+          version: 'v5'
+
+      - name: Verify install works with wget
+        shell: bash
+        run: |
+          datadog-ci version
+          [[ "${{ steps.install-wget.outputs.version }}" =~ ^v5\. ]]
+
+  test-resolve-version-jq:
+    name: "Resolve version (jq)"
+    runs-on: ubuntu-latest
+    container:
+      image: debian:bookworm-slim
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install curl and jq
+        shell: sh
+        run: apt-get update && apt-get install -y --no-install-recommends curl jq ca-certificates
+
+      - name: Verify jq is available
+        shell: bash
+        run: jq --version
+
+      - name: Install latest major version (jq path)
+        uses: ./
+        id: install
+        with:
+          version: 'v5'
+
+      - name: Verify resolved version
+        shell: bash
+        run: |
+          datadog-ci version
+          [[ "${{ steps.install.outputs.version }}" =~ ^v5\. ]]
+
+  test-resolve-version-awk:
+    name: "Resolve version (awk fallback)"
+    runs-on: ubuntu-latest
+    container:
+      image: debian:bookworm-slim
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install curl without jq
+        shell: sh
+        run: apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
+
+      - name: Verify jq is NOT available
+        shell: bash
+        run: |
+          if command -v jq &>/dev/null; then
+            echo "::error::jq should not be installed for this test"
+            exit 1
+          fi
+
+      - name: Install latest major version (awk fallback path)
+        uses: ./
+        id: install
+        with:
+          version: 'v5'
+
+      - name: Verify resolved version
+        shell: bash
+        run: |
+          datadog-ci version
+          [[ "${{ steps.install.outputs.version }}" =~ ^v5\. ]]
+
+  test-resolve-version-error-handling:
+    name: "Resolve version error handling (${{ matrix.os }})"
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Verify jq is available
+        shell: bash
+        run: jq --version
+
+      - name: Run resolver unit tests
+        shell: bash
+        run: bash test/resolve-version.sh
+
+  test-install:
+    strategy:
+      fail-fast: false
+      matrix:
+        # Matches the OS/arch combinations used by the datadog-ci release pipeline:
+        # ubuntu-latest (Linux x64), ubuntu-24.04-arm (Linux ARM64),
+        # macos-latest (macOS ARM64), macos-latest-large (macOS x64), windows-latest (Win x64)
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-latest-large, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Test 1: Install with default version (v5)
+      - name: Install default version
+        uses: ./
+        id: install-default
+
+      - name: Verify default install
+        shell: bash
+        run: |
+          datadog-ci version
+          echo "Installed version: ${{ steps.install-default.outputs.version }}"
+          # Verify version output is not empty and starts with 'v5.'
+          [[ "${{ steps.install-default.outputs.version }}" == v5.* ]]
+
+      # Test 2: Install with a pinned version
+      - name: Install pinned version
+        uses: ./
+        id: install-pinned
+        with:
+          version: 'v5.6.0'
+
+      - name: Verify pinned install
+        shell: bash
+        run: |
+          version=$(datadog-ci version)
+          [[ "$version" == *"5.6.0"* ]]
+
+      # Test 3: Verify re-installing the same version works
+      - name: Install same pinned version again
+        uses: ./
+        with:
+          version: 'v5.6.0'
+
+  test-install-alpine:
+    runs-on: ubuntu-latest
+    container:
+      image: alpine:3.20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install dependencies
+        shell: sh
+        run: apk add --no-cache bash curl
+
+      - name: Install on Alpine (happy path)
+        uses: ./
+        id: install-alpine
+        with:
+          version: 'v5.18.0'
+
+      - name: Verify install works on Alpine
+        shell: sh
+        run: |
+          datadog-ci version
+          [ "${{ steps.install-alpine.outputs.version }}" = "v5.18.0" ]
+
+  test-cache:
+    name: "Cache hit / miss behavior"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # First install: cold cache (miss) or warm cache (hit from a previous run) — either way the binary must work
+      - name: Install pinned version (first time)
+        uses: ./
+        id: install-first
+        with:
+          version: 'v5.6.0'
+
+      - name: Verify first install
+        shell: bash
+        run: |
+          datadog-ci version
+          [[ "${{ steps.install-first.outputs.version }}" == "v5.6.0" ]]
+
+      # Second install: must always be a cache hit because either the first install just saved it
+      # or it was already present from a previous run
+      - name: Install same version again (must be cache hit)
+        uses: ./
+        id: install-second
+        with:
+          version: 'v5.6.0'
+
+      - name: Verify second install was a cache hit
+        shell: bash
+        run: |
+          datadog-ci version
+          [[ "${{ steps.install-second.outputs.cache-hit }}" == "true" ]]
+
+  test-install-alpine-old-version:
+    runs-on: ubuntu-latest
+    container:
+      image: alpine:3.20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install dependencies
+        shell: sh
+        run: apk add --no-cache bash curl
+
+      - name: Install on Alpine with pre-musl version (should fail)
+        uses: ./
+        id: install-alpine-old
+        continue-on-error: true
+        with:
+          version: 'v5.17.0'
+
+      - name: Verify the step failed
+        shell: sh
+        run: |
+          [ "${{ steps.install-alpine-old.outcome }}" = "failure" ]

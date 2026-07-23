@@ -1,0 +1,56 @@
+# Unless explicitly stated otherwise all files in this repository are licensed
+# under the Apache License Version 2.0.
+# This product includes software developed at Datadog (https://www.datadoghq.com/)
+# Copyright 2024-present Datadog, Inc.
+name: Release smoke test
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'datadog-ci version to test (e.g. "v5.7.0")'
+        required: true
+
+jobs:
+  test-install:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-latest-large, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install specific version
+        uses: ./
+        id: install
+        with:
+          version: ${{ inputs.version }}
+
+      - name: Verify install
+        shell: bash
+        run: |
+          datadog-ci version
+          [[ "${{ steps.install.outputs.version }}" == "${{ inputs.version }}" ]]
+
+  test-install-alpine:
+    runs-on: ubuntu-latest
+    container:
+      image: alpine:3.20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install dependencies
+        shell: sh
+        run: apk add --no-cache bash curl
+
+      - name: Install specific version
+        uses: ./
+        id: install
+        with:
+          version: ${{ inputs.version }}
+
+      - name: Verify install
+        shell: sh
+        run: |
+          datadog-ci version
+          [ "${{ steps.install.outputs.version }}" = "${{ inputs.version }}" ]

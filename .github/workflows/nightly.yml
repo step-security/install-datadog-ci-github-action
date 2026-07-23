@@ -1,0 +1,29 @@
+# Unless explicitly stated otherwise all files in this repository are licensed
+# under the Apache License Version 2.0.
+# This product includes software developed at Datadog (https://www.datadoghq.com/)
+# Copyright 2024-present Datadog, Inc.
+name: Nightly validation
+on:
+  schedule:
+    - cron: '0 6 * * *' # 6am UTC daily
+  workflow_dispatch: # allow manual trigger for on-demand validation
+
+jobs:
+  test-install:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-latest-large, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install default version
+        uses: ./
+        id: install
+
+      - name: Verify install
+        shell: bash
+        run: |
+          datadog-ci version
+          [[ "${{ steps.install.outputs.version }}" == v5.* ]]
