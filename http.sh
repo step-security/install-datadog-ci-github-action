@@ -3,6 +3,7 @@
 # under the Apache License Version 2.0.
 # This product includes software developed at Datadog (https://www.datadoghq.com/)
 # Copyright 2024-present Datadog, Inc.
+# Copyright 2026 StepSecurity
 
 # Shared HTTP helpers — abstracts curl vs wget.
 # Source this file from other scripts: source "$(dirname "$0")/http.sh"
