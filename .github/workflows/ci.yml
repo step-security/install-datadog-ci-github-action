@@ -114,7 +114,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: ${{ github.actor == 'dependabot[bot]' && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest", "macos-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -134,7 +134,8 @@ jobs:
         # Matches the OS/arch combinations used by the datadog-ci release pipeline:
         # ubuntu-latest (Linux x64), ubuntu-24.04-arm (Linux ARM64),
         # macos-latest (macOS ARM64), macos-latest-large (macOS x64), windows-latest (Win x64)
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-latest-large, windows-latest]
+        os: ${{ github.actor == 'dependabot[bot]' && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest", "ubuntu-24.04-arm", "macos-latest-large", "macos-latest", "windows-latest"]') }}
+
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
