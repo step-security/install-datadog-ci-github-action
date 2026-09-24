@@ -9,16 +9,19 @@ A GitHub Action that installs the [Datadog CI CLI](https://github.com/DataDog/da
 ```yaml
 steps:
   - name: Install datadog-ci
-    uses: step-security/install-datadog-ci-github-action@v1
+    uses: step-security/install-datadog-ci-github-action@v2
 
   - name: Use datadog-ci
     run: datadog-ci version
 ```
 
+> [!IMPORTANT]
+> v2 requires GitHub Actions Runner 2.327.1 or newer. GitHub-hosted runners are kept up to date, but users of self-hosted runners must upgrade their runner before using v2. This does not change the Node.js version used by your project.
+
 ### Pin to a specific version
 
 ```yaml
-- uses: step-security/install-datadog-ci-github-action@v1
+- uses: step-security/install-datadog-ci-github-action@v2
   with:
     version: 'v5.6.0'
 ```
